@@ -1,6 +1,7 @@
 # RSA: Creating public/private key pair
 import random
 import math
+import hashlib
 
 def generate_large_prime_number():
     # Generate random 128 bytes (1024 bits) number
@@ -62,6 +63,54 @@ def get_d_value(e, z):
     # Uses the extended euclidean algorithm to find the value of d
     return pow(e, -1, z)
 
+def xor_bytes(bytes1, bytes2):
+    # implements xor operation
+    ret = bytearray()
+    for b1, b2 in zip(bytes1, bytes2):
+        ret.append(b1 ^ b2)
+    return bytes(ret)
+
+
+def mgf1(seed, length, hash_func=hashlib.sha3_256):
+    # https://en.wikipedia.org/wiki/Mask_generation_function
+    hLen = hash_func().digest_size
+    # https://www.ietf.org/rfc/rfc2437.txt
+    # 1. If l > 2^32(hLen), output "mask too long" and stop.
+    if length > (hLen << 32):
+        raise ValueError("mask too long")
+    # 2. Let T be the empty octet string.
+    T = b""
+    counter = 0
+    while len(T) < length:
+        # a. Convert counter to an octet string C of length 4 with the primitive I2OSP: C = I2OSP (counter, 4)
+        C = int.to_bytes(counter, 4, "big")
+        # b. Concatenate the hash of the seed Z and C to the octet string T: T = T || Hash (Z || C)
+        T += hash_func(seed + C).digest()
+        counter += 1
+    # 4. Output the leading l octets of T as the octet string mask.
+    return T[:length]
+
+
+def oaep(msg_bytes):
+    k = 256 # modulus size (256 bytes)
+    hLen = 32 # hash length (using SHA-3 with 256 bits)
+    lHash = hashlib.sha3_256(b"").digest() # no label, just empty string
+    mLen = len(msg_bytes) # message size in bytes
+    ps_size = k - mLen - 2 * hLen - 2 #
+
+    PS = b"\x00" * ps_size
+    DB = lHash + PS + b"\x01" + msg_bytes # data block
+
+    seed = random.randbytes(hLen) 
+    dbMask = mgf1(seed, k - hLen - 1)
+    maskedDB = xor_bytes(DB, dbMask)
+    seedMask = mgf1(maskedDB, hLen)
+    maskedSeed = xor_bytes(seed, seedMask)
+
+    EM = b"\x00" + maskedSeed + maskedDB # encoded message
+    return EM
+
+
     
 def main():
     # a) Key generation (p and q primes with at least 1024 bits)
@@ -83,15 +132,15 @@ def main():
     public_key = (n, e)
     private_key = (n, d)
 
+    # b) Asymmetric RSA encryption/decryption using OAEP (Optimal asymmetric encryption padding).
+    msg = b"Hello, this is a secret test message!"
+    oaep_msg = oaep(msg)
+    m_int = int.from_bytes(oaep_msg, byteorder='big')
+    # encryption: c = m^e mod n
+    c = pow(m_int, e, n)
+    encrypted_msg = c.to_bytes(256, byteorder="big")
 
-    # b) Asymmetric RSA encryption/decryption using OAEP.
-
-
-
-
-
-
-
+    print("Encrypted message:", encrypted_msg)
 
 if __name__ == "__main__":
     main()
