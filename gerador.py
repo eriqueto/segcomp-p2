@@ -2,6 +2,7 @@
 import random
 import math
 import hashlib
+import base64
 
 def generate_large_prime_number():
     # Generate random 128 bytes (1024 bits) number
@@ -111,6 +112,24 @@ def oaep(msg_bytes):
     return EM
 
 
+
+def generate_signature(msg_bytes, private_key):
+    # Calculates SHA-3 hash and encrypts it with private key
+    n, d = private_key
+    
+    hash_msg = hashlib.sha3_256(msg_bytes).digest()
+    hash_int = int.from_bytes(hash_msg, byteorder='big')
+    
+    # signature: s = hash^d mod n
+    signature_int = pow(hash_int, d, n)
+    
+    # format back to bytes and encode to base64
+    n_bytes = (n.bit_length() + 7) // 8
+    signature_bytes = signature_int.to_bytes(n_bytes, byteorder='big')
+    
+    return base64.b64encode(signature_bytes).decode('utf-8')
+
+
     
 def main():
     # a) Key generation (p and q primes with at least 1024 bits)
@@ -141,6 +160,15 @@ def main():
     encrypted_msg = c.to_bytes(256, byteorder="big")
 
     print("Encrypted message:", encrypted_msg)
+    print("--------------------------------------------------")
+    
+    # Part II: Signature testing
+    doc = b"Parte 2: gerando assinatura"
+    signature_b64 = generate_signature(doc, private_key)
+    
+    print("Original document:", doc.decode('utf-8'))
+    print("Generated signature (BASE64):")
+    print(signature_b64)
 
 if __name__ == "__main__":
     main()
