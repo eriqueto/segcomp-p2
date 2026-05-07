@@ -130,6 +130,29 @@ def generate_signature(msg_bytes, private_key):
     return base64.b64encode(signature_bytes).decode('utf-8')
 
 
+def verify_signature(msg_bytes, signature_b64, public_key):
+    # Part III: Verification
+    n, e = public_key
+    
+    # 1. Parse BASE64 signature back to integer
+    # Error handling during decoding
+    try:
+        signature_bytes = base64.b64decode(signature_b64)
+    except Exception:
+        return False
+
+    signature_int = int.from_bytes(signature_bytes, byteorder='big')
+    
+    # 2. Decrypt the signature using the public key (e) to recover the hash
+    recovered_hash_int = pow(signature_int, e, n)
+    
+    # 3. Calculate the SHA-3 hash of the provided document
+    current_hash = hashlib.sha3_256(msg_bytes).digest()
+    #mantive o byteorder='big' conforme o original do colega
+    current_hash_int = int.from_bytes(current_hash, byteorder='big')
+    
+    # 4. Verify if the recovered hash matches the document's actual hash
+    return recovered_hash_int == current_hash_int
     
 def main():
     # a) Key generation (p and q primes with at least 1024 bits)
@@ -165,10 +188,22 @@ def main():
     # Part II: Signature testing
     doc = b"Parte 2: gerando assinatura"
     signature_b64 = generate_signature(doc, private_key)
-    
+    # --- Testing Integrity Violation ---
+    # doc = b"Parte 2: gerando assinaturA" 
+    # --------------------------------------------------
     print("Original document:", doc.decode('utf-8'))
     print("Generated signature (BASE64):")
     print(signature_b64)
 
+    print("--------------------------------------------------")
+
+    #Part III: Verification testing 
+    print("Part III: Verification testing")
+    is_valid = verify_signature(doc, signature_b64, public_key)
+    
+    if is_valid:
+        print("Result: VALID signature. The document is authentic.")
+    else:
+        print("Result: INVALID signature or corrupted document.")
 if __name__ == "__main__":
     main()
