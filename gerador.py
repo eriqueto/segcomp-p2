@@ -185,25 +185,63 @@ def main():
     print("Encrypted message:", encrypted_msg)
     print("--------------------------------------------------")
     
+    # -----------------------------------------------------------
     # Part II: Signature testing
-    doc = b"Parte 2: gerando assinatura"
-    signature_b64 = generate_signature(doc, private_key)
-    # --- Testing Integrity Violation ---
-    # doc = b"Parte 2: gerando assinaturA" 
-    # --------------------------------------------------
-    print("Original document:", doc.decode('utf-8'))
+    
+    # Using the 'msg' variable from OAEP test to generate the signature
+    signature_b64 = generate_signature(msg, private_key)
+    
+    print("Original document:", msg.decode('utf-8'))
     print("Generated signature (BASE64):")
     print(signature_b64)
-
     print("--------------------------------------------------")
 
-    #Part III: Verification testing 
-    print("Part III: Verification testing")
-    is_valid = verify_signature(doc, signature_b64, public_key)
+    # -----------------------------------------------------------
+    # SCENARIO 1: SUCCESS (Happy Path)
+    
+    print("Test 1: Standard Verification (Correct Key & Original Msg)")
+    # Verifying the original 'msg' with the correct public key
+    is_valid = verify_signature(msg, signature_b64, public_key)
     
     if is_valid:
         print("Result: VALID signature. The document is authentic.")
     else:
-        print("Result: INVALID signature or corrupted document.")
+        print("Result: INVALID signature.")
+
+    print("--------------------------------------------------")
+
+    # -----------------------------------------------------------
+    # SCENARIO 2: INTEGRITY VIOLATION (Tampering Test)
+
+    # Creating a modified version of 'msg' to trigger a Hash Mismatch
+    msg_tampered = b"Hello, this is a secret test messagE!" # Changed last char to 'E'
+    
+    print("Test 2: Integrity testing (Tampered message)")
+    is_valid_integrity = verify_signature(msg_tampered, signature_b64, public_key)
+    
+    if is_valid_integrity:
+        print("Result: VALID signature.")
+    else:
+        print("Result: INVALID signature (Integrity Failure).")
+
+    print("--------------------------------------------------")
+
+    # -----------------------------------------------------------
+    # SCENARIO 3: AUTHENTICITY ERROR (Wrong Key)
+    
+    # 1. Generating a fake key pair (Simulating a Hacker/Spoofing keys)
+    p_fake = get_prime_number(); q_fake = get_prime_number()
+    n_fake = p_fake * q_fake; z_fake = (p_fake-1) * (q_fake-1)
+    e_fake = get_e_value(n_fake, z_fake)
+    public_key_fake = (n_fake, e_fake)
+
+    print("Test 3: Authenticity testing (Using WRONG public key)")
+    # 2. Attempting to verify the original 'msg' with the fake public key
+    is_valid_auth = verify_signature(msg, signature_b64, public_key_fake)
+    
+    if is_valid_auth:
+        print("Result: VALID signature.")
+    else:
+        print("Result: INVALID signature (Authenticity Failure).")
 if __name__ == "__main__":
     main()
